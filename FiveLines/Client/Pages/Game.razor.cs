@@ -1,11 +1,7 @@
-﻿using System;
-using System.Net.NetworkInformation;
-using Blazor.Extensions;
-using Blazor.Extensions.Canvas.Canvas2D;
+﻿using FiveLines.Client.Helpers;
 using Microsoft.AspNetCore.Components;
-using Blazor.Extensions.Canvas;
 using Microsoft.AspNetCore.Components.Web;
-using System.Reflection.Metadata;
+using Microsoft.JSInterop;
 
 namespace FiveLines.Client.Pages;
 
@@ -13,11 +9,12 @@ public partial class Game
 {
     const int TILE_SIZE = 30;
     const int FPS = 30;
-    const int SLEEP = 1000 / FPS;
+    const long SLEEP = 1000 / FPS;
     const string LEFT_KEY = "ArrowLeft";
     const string UP_KEY = "ArrowUp";
     const string RIGHT_KEY = "ArrowRight";
     const string DOWN_KEY = "ArrowDown";
+    const string CANVAS_ID = "GameCanvas";
 
     enum Input
     {
@@ -35,29 +32,28 @@ public partial class Game
         KEY2, LOCK2
     };
 
-    private readonly Stack<Input> inputs = new Stack<Input>();
+    private readonly Stack<Input> inputs = new();
 
-    private void KeyDownEventHandler(KeyboardEventArgs args)
+    int playerx = 1;
+    int playery = 1;
+    readonly Tile[][] map = new Tile[][] {
+        new Tile[] { Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE},
+        new Tile[] { Tile.UNBREAKABLE, Tile.PLAYER,      Tile.AIR,         Tile.FLUX,        Tile.FLUX,        Tile.UNBREAKABLE, Tile.AIR,         Tile.UNBREAKABLE},
+        new Tile[] { Tile.UNBREAKABLE, Tile.STONE,       Tile.UNBREAKABLE, Tile.BOX,         Tile.FLUX,        Tile.UNBREAKABLE, Tile.AIR,         Tile.UNBREAKABLE},
+        new Tile[] { Tile.UNBREAKABLE, Tile.KEY1,        Tile.STONE,       Tile.FLUX,        Tile.FLUX,        Tile.UNBREAKABLE, Tile.AIR,         Tile.UNBREAKABLE},
+        new Tile[] { Tile.UNBREAKABLE, Tile.STONE,       Tile.FLUX,         Tile.FLUX,        Tile.FLUX,        Tile.LOCK1,       Tile.AIR,         Tile.UNBREAKABLE},
+        new Tile[] { Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE}
+        };
+    [Inject]
+    IJSRuntime jSRuntime { get; set; }
+        
+    public void KeyDownEventHandler(KeyboardEventArgs args)
     {
-        switch (args.Key)
-        {
-            case LEFT_KEY:
-                inputs.Push(Input.LEFT);
-                break;
-            case RIGHT_KEY:
-                inputs.Push(Input.RIGHT);
-                break;
-            case UP_KEY:
-                inputs.Push(Input.UP);
-                break;
-            case DOWN_KEY:
-                inputs.Push(Input.DOWN);
-                break;
-            default:
-                break;
-        }
+        if (args.Key == LEFT_KEY || args.Key == "a") inputs.Push(Input.LEFT);
+        else if (args.Key == UP_KEY || args.Key == "w") inputs.Push(Input.UP);
+        else if (args.Key == RIGHT_KEY || args.Key == "d") inputs.Push(Input.RIGHT);
+        else if (args.Key == DOWN_KEY || args.Key == "s") inputs.Push(Input.DOWN);        
     }
-
 
     protected override async void OnAfterRender(bool firstRender)
     {
@@ -68,31 +64,15 @@ public partial class Game
             await gameLloop();
         }
     }
-
-
-
-    int playerx = 1;
-    int playery = 1;
-    Tile[][] map = new Tile[][] {
-        new Tile[] { Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE},
-        new Tile[] { Tile.UNBREAKABLE, Tile.PLAYER,      Tile.AIR,         Tile.FLUX,        Tile.FLUX,        Tile.UNBREAKABLE, Tile.AIR,         Tile.UNBREAKABLE},
-        new Tile[] { Tile.UNBREAKABLE, Tile.STONE,       Tile.UNBREAKABLE, Tile.BOX,         Tile.FLUX,        Tile.UNBREAKABLE, Tile.AIR,         Tile.UNBREAKABLE},
-        new Tile[] { Tile.UNBREAKABLE, Tile.KEY1,        Tile.STONE,       Tile.FLUX,        Tile.FLUX,        Tile.UNBREAKABLE, Tile.AIR,         Tile.UNBREAKABLE},
-        new Tile[] { Tile.UNBREAKABLE, Tile.STONE,       Tile.FLUX,         Tile.FLUX,        Tile.FLUX,        Tile.LOCK1,       Tile.AIR,         Tile.UNBREAKABLE},
-        new Tile[] { Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE}
-        };
-
-    private Canvas2DContext _context;
-    protected BECanvasComponent _canvasReference;
-
+   
     async Task gameLloop()
     {
-        DateTime before = DateTime.Now;
+        long before = new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds();
         update();
         await draw();
-        DateTime after = DateTime.Now;
-        var frameTime = after - before;
-        int sleep = SLEEP - frameTime.Milliseconds;
+        long after = new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds();
+        long frameTime = after - before;
+        long sleep = SLEEP - frameTime;
 
         var timer = new Timer(new TimerCallback(_ =>
         {
@@ -100,7 +80,7 @@ public partial class Game
             {
                 await gameLloop();
             });
-        }), null, 100, 100);
+        }), null, sleep, sleep);
     }
 
     private void remove(Tile tile)
@@ -216,32 +196,35 @@ public partial class Game
 
     async Task draw()
     {
-        this._context = await this._canvasReference.CreateCanvas2DAsync();
+        CanvasJSHelper canvas = CanvasJSHelper.CreateCanvasJSHelper(CANVAS_ID, jSRuntime);
+        await canvas.ClearCanvasRectAsync();
+
+        // draw map
         for (int y = 0; y < map.Length; y++)
         {
             for (int x = 0; x < map[y].Length; x++)
             {
                 if (map[y][x] == Tile.FLUX)
-                    await this._context.SetFillStyleAsync("#ccffcc");
+                    canvas.FillStyle = "#ccffcc";
                 else if (map[y][x] == Tile.UNBREAKABLE)
-                    await this._context.SetFillStyleAsync("#999999");
+                    canvas.FillStyle = "#999999";
                 else if (map[y][x] == Tile.STONE || map[y][x] == Tile.FALLING_STONE)
-                    await this._context.SetFillStyleAsync("#0000cc");
+                    canvas.FillStyle = "#0000cc";
                 else if (map[y][x] == Tile.BOX || map[y][x] == Tile.FALLING_BOX)
-                    await this._context.SetFillStyleAsync("#8b4513");
+                    canvas.FillStyle = "#8b4513";
                 else if (map[y][x] == Tile.KEY1 || map[y][x] == Tile.LOCK1)
-                    await this._context.SetFillStyleAsync("#ffcc00");
+                    canvas.FillStyle = "#ffcc00";
                 else if (map[y][x] == Tile.KEY2 || map[y][x] == Tile.LOCK2)
-                    await this._context.SetFillStyleAsync("#00ccff");
+                    canvas.FillStyle = "#00ccff";
 
                 if (map[y][x] != Tile.AIR && map[y][x] != Tile.PLAYER)
-                    await this._context.FillRectAsync(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    await canvas.FillRectAsync(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
             }
         }
 
         // Draw player
-        await this._context.SetFillStyleAsync("#ff0000");
-        await this._context.FillRectAsync(playerx * TILE_SIZE, playery * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        canvas.FillStyle = "#ff0000";
+        await canvas.FillRectAsync(playerx * TILE_SIZE, playery * TILE_SIZE, TILE_SIZE, TILE_SIZE);
     }
 }
 

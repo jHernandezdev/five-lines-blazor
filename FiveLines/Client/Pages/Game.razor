@@ -1,12 +1,9 @@
-﻿@page "/game"
-@using Blazor.Extensions;
-@using Blazor.Extensions.Canvas
-@using Blazor.Extensions.Canvas.Canvas2D;
+﻿@page "/"
 
 <h3>Five Lines</h3>
 
+<canvas width="300" height="200" id="GameCanvas"></canvas>
 <input type="text" @onkeydown="KeyDownEventHandler" />
 
-<SurveyPrompt Title="How is Blazor working for you?" />
-<BECanvas Width="300" Height="400" @ref="_canvasReference"></BECanvas>
+
 
