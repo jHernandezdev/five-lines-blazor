@@ -4,8 +4,10 @@ namespace FiveLines.Client.Helpers;
 
 public class CanvasJSHelper
 {
-    public static CanvasJSHelper CreateCanvasJSHelper(string canvasID, IJSRuntime jS)
+    public static CanvasJSHelper CreateCanvasJSHelper(string canvasID, IJSRuntime? jS)
     {
+        ArgumentNullException.ThrowIfNull(jS, nameof(jS));
+        
         return new CanvasJSHelper(canvasID, jS);
     }
 

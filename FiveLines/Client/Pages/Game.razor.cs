@@ -45,7 +45,7 @@ public partial class Game
         new Tile[] { Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE}
         };
     [Inject]
-    IJSRuntime jSRuntime { get; set; }
+    IJSRuntime? jSRuntime { get; set; }
         
     public void KeyDownEventHandler(KeyboardEventArgs args)
     {
