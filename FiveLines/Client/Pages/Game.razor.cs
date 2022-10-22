@@ -153,53 +153,80 @@ public partial class Game
 
     private void update()
     {
-        while (inputs.Count > 0)
-        {
-            Input current = inputs.Pop();
-            if (current == Input.LEFT)
-                moveHorizontal(-1);
-            else if (current == Input.RIGHT)
-                moveHorizontal(1);
-            else if (current == Input.UP)
-                moveVertical(-1);
-            else if (current == Input.DOWN)
-                moveVertical(1);
-        }
-
+        handlerInputs();
+        updateMap();
+    }
+    private void updateMap()
+    {
         for (int y = map.Length - 1; y >= 0; y--)
         {
             for (int x = 0; x < map[y].Length; x++)
             {
-                if ((map[y][x] == Tile.STONE || map[y][x] == Tile.FALLING_STONE)
-                  && map[y + 1][x] == Tile.AIR)
-                {
-                    map[y + 1][x] = Tile.FALLING_STONE;
-                    map[y][x] = Tile.AIR;
-                }
-                else if ((map[y][x] == Tile.BOX || map[y][x] == Tile.FALLING_BOX)
-                  && map[y + 1][x] == Tile.AIR)
-                {
-                    map[y + 1][x] = Tile.FALLING_BOX;
-                    map[y][x] = Tile.AIR;
-                }
-                else if (map[y][x] == Tile.FALLING_STONE)
-                {
-                    map[y][x] = Tile.STONE;
-                }
-                else if (map[y][x] == Tile.FALLING_BOX)
-                {
-                    map[y][x] = Tile.BOX;
-                }
+                updateTile(y, x);
             }
         }
+    }
+    private void updateTile(int y, int x)
+    {
+        if ((map[y][x] == Tile.STONE || map[y][x] == Tile.FALLING_STONE) && map[y + 1][x] == Tile.AIR)
+        {
+            map[y + 1][x] = Tile.FALLING_STONE;
+            map[y][x] = Tile.AIR;
+        }
+        else if ((map[y][x] == Tile.BOX || map[y][x] == Tile.FALLING_BOX) && map[y + 1][x] == Tile.AIR)
+        {
+            map[y + 1][x] = Tile.FALLING_BOX;
+            map[y][x] = Tile.AIR;
+        }
+        else if (map[y][x] == Tile.FALLING_STONE)
+        {
+            map[y][x] = Tile.STONE;
+        }
+        else if (map[y][x] == Tile.FALLING_BOX)
+        {
+            map[y][x] = Tile.BOX;
+        }
+    }
+
+    private void handlerInputs()
+    {
+        while (inputs.Count > 0)
+        {
+            Input current = inputs.Pop();
+            handlerInput(current);
+        }
+    }
+    private void handlerInput(Input current)
+    {
+        if (current == Input.LEFT)
+            moveHorizontal(-1);
+        else if (current == Input.RIGHT)
+            moveHorizontal(1);
+        else if (current == Input.UP)
+            moveVertical(-1);
+        else if (current == Input.DOWN)
+            moveVertical(1);
     }
 
     async Task draw()
     {
-        CanvasJSHelper canvas = CanvasJSHelper.CreateCanvasJSHelper(CANVAS_ID, jSRuntime);
-        await canvas.ClearCanvasRectAsync();
-
-        // draw map
+        CanvasJSHelper canvas = await createGraphics();
+        await drawMap(canvas);
+        await drawPlayer(canvas);
+    }
+    private async Task<CanvasJSHelper> createGraphics()
+    {
+        CanvasJSHelper result = CanvasJSHelper.CreateCanvasJSHelper(CANVAS_ID, jSRuntime);
+        await result.ClearCanvasRectAsync();
+        return result;
+    }
+    private async Task drawPlayer(CanvasJSHelper canvas)
+    {
+        canvas.FillStyle = "#ff0000";
+        await canvas.FillRectAsync(playerx * TILE_SIZE, playery * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+    }
+    private async Task drawMap(CanvasJSHelper canvas)
+    {
         for (int y = 0; y < map.Length; y++)
         {
             for (int x = 0; x < map[y].Length; x++)
@@ -221,10 +248,6 @@ public partial class Game
                     await canvas.FillRectAsync(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
             }
         }
-
-        // Draw player
-        canvas.FillStyle = "#ff0000";
-        await canvas.FillRectAsync(playerx * TILE_SIZE, playery * TILE_SIZE, TILE_SIZE, TILE_SIZE);
     }
 }
 
