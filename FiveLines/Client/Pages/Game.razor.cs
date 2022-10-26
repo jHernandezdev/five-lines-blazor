@@ -1,4 +1,5 @@
 ﻿using FiveLines.Client.Helpers;
+using FiveLines.Client.Model;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
@@ -16,10 +17,6 @@ public partial class Game
     const string DOWN_KEY = "ArrowDown";
     const string CANVAS_ID = "GameCanvas";
 
-    enum Input
-    {
-        UP, DOWN, LEFT, RIGHT
-    }
     enum Tile
     {
         AIR = 0,
@@ -41,7 +38,7 @@ public partial class Game
         new Tile[] { Tile.UNBREAKABLE, Tile.PLAYER,      Tile.AIR,         Tile.FLUX,        Tile.FLUX,        Tile.UNBREAKABLE, Tile.AIR,         Tile.UNBREAKABLE},
         new Tile[] { Tile.UNBREAKABLE, Tile.STONE,       Tile.UNBREAKABLE, Tile.BOX,         Tile.FLUX,        Tile.UNBREAKABLE, Tile.AIR,         Tile.UNBREAKABLE},
         new Tile[] { Tile.UNBREAKABLE, Tile.KEY1,        Tile.STONE,       Tile.FLUX,        Tile.FLUX,        Tile.UNBREAKABLE, Tile.AIR,         Tile.UNBREAKABLE},
-        new Tile[] { Tile.UNBREAKABLE, Tile.STONE,       Tile.FLUX,         Tile.FLUX,        Tile.FLUX,        Tile.LOCK1,       Tile.AIR,         Tile.UNBREAKABLE},
+        new Tile[] { Tile.UNBREAKABLE, Tile.STONE,       Tile.FLUX,        Tile.FLUX,        Tile.FLUX,        Tile.LOCK1,       Tile.AIR,         Tile.UNBREAKABLE},
         new Tile[] { Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE, Tile.UNBREAKABLE}
         };
     [Inject]
@@ -49,10 +46,10 @@ public partial class Game
         
     public void KeyDownEventHandler(KeyboardEventArgs args)
     {
-        if (args.Key == LEFT_KEY || args.Key == "a") inputs.Push(Input.LEFT);
-        else if (args.Key == UP_KEY || args.Key == "w") inputs.Push(Input.UP);
-        else if (args.Key == RIGHT_KEY || args.Key == "d") inputs.Push(Input.RIGHT);
-        else if (args.Key == DOWN_KEY || args.Key == "s") inputs.Push(Input.DOWN);        
+        if (args.Key == LEFT_KEY || args.Key == "a") inputs.Push(new Left(moveHorizontal));
+        else if (args.Key == UP_KEY || args.Key == "w") inputs.Push(new Up(moveVertical));
+        else if (args.Key == RIGHT_KEY || args.Key == "d") inputs.Push(new Right(moveHorizontal));
+        else if (args.Key == DOWN_KEY || args.Key == "s") inputs.Push(new Down(moveVertical));        
     }
 
     protected override async void OnAfterRender(bool firstRender)
@@ -193,20 +190,9 @@ public partial class Game
         while (inputs.Count > 0)
         {
             Input current = inputs.Pop();
-            handlerInput(current);
+            current.Handle();
         }
-    }
-    private void handlerInput(Input current)
-    {
-        if (current == Input.LEFT)
-            moveHorizontal(-1);
-        else if (current == Input.RIGHT)
-            moveHorizontal(1);
-        else if (current == Input.UP)
-            moveVertical(-1);
-        else if (current == Input.DOWN)
-            moveVertical(1);
-    }
+    }    
 
     async Task draw()
     {
